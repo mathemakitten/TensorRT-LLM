@@ -49,7 +49,7 @@ class LLaMADecoderLayer(Module):
         self.local_layer_idx = layer_idx - layers_range[0]
         self.attention = Attention(
             local_layer_idx=self.local_layer_idx,
-            hidden_size=config.hidden_size,
+            hidden_size=4096, # kv_channels * num_heads = 128 * 32 #config.hidden_size,
             attention_head_size=config.head_size,
             num_attention_heads=config.num_attention_heads,
             num_kv_heads=config.num_key_value_heads,
