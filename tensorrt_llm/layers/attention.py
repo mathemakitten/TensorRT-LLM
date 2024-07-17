@@ -302,7 +302,7 @@ class Attention(Module):
         self.local_layer_idx = local_layer_idx
         self.cross_attention = cross_attention
         self.attention_mask_type = attention_mask_type
-        self.attention_head_size = hidden_size // num_attention_heads if attention_head_size is None else attention_head_size
+        self.attention_head_size = 128 #hidden_size // num_attention_heads if attention_head_size is None else attention_head_size
         self.num_kv_heads = num_kv_heads
         assert num_attention_heads % tp_size == 0, \
         "num_attention_heads must be divisible by tp_size"
