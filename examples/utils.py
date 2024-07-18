@@ -371,7 +371,7 @@ class CustomTikTokenizer(MegatronTokenizer):
         return tokens
 
     def detokenize(self, tokens: List[int]) -> str:
-        assert self.num_special_tokens <= min(tokens), f"Cannot decode special tokens (EOS, BOS).{tokens}"
+        # assert self.num_special_tokens <= min(tokens), f"Cannot decode special tokens (EOS, BOS).{tokens}"
         tokens = [t - self.num_special_tokens for t in tokens if t not in {self.bos, self.eos}]
         return self._model.decode(tokens)
 
