@@ -390,6 +390,9 @@ class CustomTikTokenizer(MegatronTokenizer):
     def encode(self, curr_text, add_special_tokens=True, truncation=True, max_length=8192):
         return self.tokenize(s=curr_text)
 
+    def decode(self, text):
+        return self.detokenize(text)
+
 def load_tokenizer(tokenizer_dir: Optional[str] = None,
                    vocab_file: Optional[str] = None,
                    model_name: str = 'GPTForCausalLM',
