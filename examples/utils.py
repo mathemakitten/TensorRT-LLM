@@ -396,7 +396,8 @@ class CustomTikTokenizer(MegatronTokenizer):
         return self.tokenize(s=curr_text)
 
     def decode(self, text):
-        print(f"Decoding: {text}")
+        print(f"Decoding 2: {text}")
+        print(f"decoded 2: {self.detokenize(text)}")
         return self.detokenize(text)
 
 def load_tokenizer(tokenizer_dir: Optional[str] = None,
