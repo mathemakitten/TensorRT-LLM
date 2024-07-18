@@ -389,6 +389,10 @@ class CustomTikTokenizer(MegatronTokenizer):
 
     def encode(self, curr_text, add_special_tokens=True, truncation=True, max_length=8192):
         print(f"Encoding: {curr_text}")
+        x = self.tokenize(s=curr_text)
+        print(f"encoded: {x}")
+        y = self.detokenize(x)
+        print(f"decoded: {y}")
         return self.tokenize(s=curr_text)
 
     def decode(self, text):
