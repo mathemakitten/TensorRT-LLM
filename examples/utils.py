@@ -95,11 +95,302 @@ def throttle_generator(generator, stream_interval):
         yield out
 
 
+PATTERN_TIKTOKEN = r"[^\r\n\p{L}\p{N}]?+\p{L}+|\p{N}| ?[^\s\p{L}\p{N}]++[\r\n]*|\s*[\r\n]|\s+(?!\S)|\s+"
+PATTERN_TIKTOKEN_V2 = "[^\\r\\n\\p{L}\\p{N}]?[\\p{Lu}\\p{Lt}\\p{Lm}\\p{Lo}\\p{M}]*[\\p{Ll}\\p{Lm}\\p{Lo}\\p{M}]+|[^\\r\\n\\p{L}\\p{N}]?[\\p{Lu}\\p{Lt}\\p{Lm}\\p{Lo}\\p{M}]+[\\p{Ll}\\p{Lm}\\p{Lo}\\p{M}]*|\\p{N}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n/]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+"
+DEFAULT_TIKTOKEN_MAX_VOCAB = 2**17  # 131072
+SPECIAL_TOKENS = ["<unk>", "<s>", "</s>"]
+NUM_SPECIAL_TOKENS = 1000
+SPECIAL_TOKEN_TEMPLATE = "<SPECIAL_{id}>"
+
+from typing import Dict, List, Optional
+
+import json
+from abc import ABC, abstractmethod
+from collections import OrderedDict
+from typing import Any
+
+import numpy
+
+
+class MegatronTokenizer(ABC):
+    """Abstract class for tokenizer
+
+    Absent a config or class-specific tracking of which objects are uniquely identifying, we must
+    include all key word arguments as unique identifiers
+
+    Args:
+        tokenizer_paths (Tuple[str]): All tokenizer source paths or prefixes
+
+        kwargs (Dict[str, Any]): All tokenizer options
+    """
+
+    def __init__(self, *tokenizer_paths: str, **tokenizer_options: Any):
+
+        self.unique_identifiers = OrderedDict()
+        self.unique_identifiers["class"] = type(self).__name__
+        self.unique_identifiers["tokenizer_path"] = list(tokenizer_paths)
+        for option in tokenizer_options:
+            self.unique_identifiers[option] = str(tokenizer_options[option])
+
+        self.unique_description = json.dumps(self.unique_identifiers, indent=4)
+
+        super().__init__()
+
+    @abstractmethod
+    def tokenize(self, text: str) -> numpy.ndarray:
+        """Convert text to embedding ids
+
+        Args:
+            text (str): The text to convert
+
+        Returns:
+            numpy.ndarray: The converted embedding ids
+        """
+        pass
+
+    def detokenize(self, ids: numpy.ndarray) -> str:
+        """Convert embedding ids to text
+
+        Args:
+            ids (numpy.ndarray): The ids to convert
+
+        Returns:
+            str: The converted text
+
+        Raises:
+            NotImplementedError: Non-abstract, optional method
+        """
+        raise NotImplementedError("{} has no method 'detokenize'".format(type(self).__name__))
+
+    @property
+    @abstractmethod
+    def vocab(self):
+        """Dictionary from vocab text token to id token
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def inv_vocab(self):
+        """Dictionary from vocab id token to text token
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def vocab_size(self):
+        """The vocabulary size
+        """
+        pass
+
+    @property
+    def cls(self):
+        """The CLS token id
+
+        Raises:
+            NotImplementedError: Non-abstract, optional attribute
+        """
+        raise NotImplementedError("{} has no attribute 'cls'".format(type(self).__name__))
+
+    @property
+    def sep(self):
+        """The SEP token id
+
+        Raises:
+            NotImplementedError: Non-abstract, optional attribute
+        """
+        raise NotImplementedError("{} has no attribute 'sep'".format(type(self).__name__))
+
+    @property
+    def pad(self):
+        """The PAD token id
+
+        Raises:
+            NotImplementedError: Non-abstract, optional attribute
+        """
+        raise NotImplementedError("{} has no attribute 'pad'".format(type(self).__name__))
+
+    @property
+    def eod(self):
+        """The EOD token id
+
+        Raises:
+            NotImplementedError: Non-abstract, optional attribute
+        """
+        raise NotImplementedError("{} has no attribute 'eod'".format(type(self).__name__))
+
+    @property
+    def bos(self):
+        """The BOS token id
+
+        Raises:
+            NotImplementedError: Non-abstract, optional attribute
+        """
+        raise NotImplementedError("{} has no attribute 'bos'".format(type(self).__name__))
+
+    @property
+    def eos(self):
+        """The EOS token id
+
+        Raises:
+            NotImplementedError: Non-abstract, optional attribute
+        """
+        raise NotImplementedError("{} has no attribute 'eos'".format(type(self).__name__))
+
+    @property
+    def mask(self):
+        """The MASK token id
+
+        Raises:
+            NotImplementedError: Non-abstract, optional attribute
+        """
+        raise NotImplementedError("{} has no attribute 'mask'".format(type(self).__name__))
+
+import base64
+def reload_mergeable_ranks(
+    path: str,
+    max_vocab: Optional[int] = None,
+) -> Dict[bytes, int]:
+    """
+    Reload our tokenizer JSON file and convert it to Tiktoken format.
+    """
+    assert path.endswith(".json")
+
+    # reload vocab
+    with open(path, "r") as f:
+        vocab = json.load(f)
+    assert isinstance(vocab, list)
+    print(f"Vocab size: {len(vocab)}")
+    if max_vocab is not None:
+        vocab = vocab[:max_vocab]
+        print(f"Cutting vocab to first {len(vocab)} tokens.")
+
+    # build ranks
+    ranks: Dict[bytes, int] = {}
+    for i, x in enumerate(vocab):
+        assert x.keys() == {"rank", "token_bytes", "token_str"}
+        assert x["rank"] == i
+        merge = base64.b64decode(x["token_bytes"])
+        assert i >= 256 or merge == bytes([i])
+        ranks[merge] = x["rank"]
+
+    # sanity check
+    assert len(ranks) == len(vocab)
+    assert set(ranks.values()) == set(range(len(ranks)))
+
+    return ranks
+
+class CustomTikTokenizer(MegatronTokenizer):
+    def __init__(
+        self,
+        path: str,
+        # pattern: str,
+        vocab_size: int = DEFAULT_TIKTOKEN_MAX_VOCAB,
+        num_special_tokens: int = 3,
+        special_tokens: Optional[List[str]] = None,
+    ):
+        super().__init__(
+            path,
+            pattern='v2', #pattern,
+            vocab_size=vocab_size,
+            num_special_tokens=num_special_tokens,
+            special_tokens=special_tokens
+        )
+        import tiktoken
+        if special_tokens is None:
+            special_tokens = SPECIAL_TOKENS.copy()
+        assert len(special_tokens) == len(set(special_tokens)), f"Special tokens should be unique: {special_tokens}"
+        assert len(special_tokens) <= num_special_tokens < vocab_size
+        assert set(SPECIAL_TOKENS) <= set(special_tokens), f"Custom special tokens should include {SPECIAL_TOKENS}"
+
+        self._unk_id = special_tokens.index("<unk>")
+        self._bos_id = special_tokens.index("<s>")
+        self._eos_id = special_tokens.index("</s>")
+
+        self._vocab_size = vocab_size
+        self.num_special_tokens = num_special_tokens
+        special_filler = [SPECIAL_TOKEN_TEMPLATE.format(id=i) for i in range(len(special_tokens), num_special_tokens)]
+        if special_filler:
+            print(f"Adding special tokens {special_filler[0]}, ..., {special_filler[-1]}")
+        self.special_tokens = special_tokens + special_filler
+        assert len(set(self.special_tokens)) == len(self.special_tokens) == num_special_tokens, self.special_tokens
+        self.inner_vocab_size = vocab_size - num_special_tokens
+
+        # reload vocab
+        self.token2id = reload_mergeable_ranks(path, max_vocab=self.inner_vocab_size)
+        self.id2token = {v: k for k, v in self.token2id.items()}
+        assert set(range(self.inner_vocab_size)) == set(self.id2token.keys())
+
+        self.shifted_id2token = {i: tok for i,tok in enumerate(self.special_tokens)}
+        for key, value in self.id2token.items():
+            self.shifted_id2token[key + self.num_special_tokens] = value
+
+        self._model = tiktoken.Encoding(
+            name=Path(path).parent.name,
+            pat_str=PATTERN_TIKTOKEN_V2,
+            mergeable_ranks=self.token2id,
+            special_tokens={},  # special tokens are handled manually
+        )
+
+    @property
+    def bos(self) -> int:
+        return self._bos_id
+
+    @property
+    def eos(self) -> int:
+        return self._eos_id
+
+    @property
+    def unk(self) -> int:
+        return self._unk_id
+
+    @property
+    def eod(self) -> int:
+        return self._eos_id
+
+    @property
+    def vocab(self):
+        return self.token2id
+
+    @property
+    def inv_vocab(self):
+        return self.id2token
+
+    def tokenize(self, s: str, bos: bool = False, eos: bool = False) -> List[int]:
+        tokens = self._model.encode(s)
+        tokens = [t + self.num_special_tokens for t in tokens]
+        if bos:
+            tokens = [self.bos, *tokens]
+        if eos:
+            tokens = [*tokens, self.eos]
+
+        return tokens
+
+    def detokenize(self, tokens: List[int]) -> str:
+        assert self.num_special_tokens <= min(tokens), f"Cannot decode special tokens (EOS, BOS).{tokens}"
+        tokens = [t - self.num_special_tokens for t in tokens if t not in {self.bos, self.eos}]
+        return self._model.decode(tokens)
+
+    @property
+    def vocab_size(self) -> int:
+        return self._vocab_size
+
+    @property
+    def decoder(self):
+        return self.shifted_id2token
+
+    @property
+    def encoder(self):
+        return self.vocab
+
 def load_tokenizer(tokenizer_dir: Optional[str] = None,
                    vocab_file: Optional[str] = None,
                    model_name: str = 'GPTForCausalLM',
                    model_version: Optional[str] = None,
                    tokenizer_type: Optional[str] = None):
+    if tokenizer_type == 'TikTokenizer':
+        tokenizer = CustomTikTokenizer(path=vocab_file)
+
     if vocab_file is None:
         use_fast = True
         if tokenizer_type is not None and tokenizer_type == "llama":
