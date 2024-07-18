@@ -390,9 +390,9 @@ def load_tokenizer(tokenizer_dir: Optional[str] = None,
                    tokenizer_type: Optional[str] = None):
     # TODO(helenn): fix this.
     tokenizer_type = 'TikTokenizer'
-    if tokenizer_type == 'TikTokenizer':
-        tokenizer = CustomTikTokenizer(path=vocab_file)
+    tokenizer = CustomTikTokenizer(path=vocab_file)
 
+    '''
     if vocab_file is None:
         use_fast = True
         if tokenizer_type is not None and tokenizer_type == "llama":
@@ -438,8 +438,9 @@ def load_tokenizer(tokenizer_dir: Optional[str] = None,
             tokenizer.pad_token_id = tokenizer.eos_token_id
         pad_id = tokenizer.pad_token_id
         end_id = tokenizer.eos_token_id
+    '''
 
-    return tokenizer, pad_id, end_id
+    return tokenizer, None, tokenizer._eos_id #pad_id, end_id
 
 
 def add_common_args(parser):
