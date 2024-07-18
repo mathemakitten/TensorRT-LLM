@@ -337,6 +337,10 @@ class CustomTikTokenizer(MegatronTokenizer):
         return self._bos_id
 
     @property
+    def pad_token_id(self) -> int:
+        return self._eos_id
+
+    @property
     def eos(self) -> int:
         return self._eos_id
 
