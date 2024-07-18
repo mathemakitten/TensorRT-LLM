@@ -388,6 +388,8 @@ def load_tokenizer(tokenizer_dir: Optional[str] = None,
                    model_name: str = 'GPTForCausalLM',
                    model_version: Optional[str] = None,
                    tokenizer_type: Optional[str] = None):
+    # TODO(helenn): fix this.
+    tokenizer_type = 'TikTokenizer'
     if tokenizer_type == 'TikTokenizer':
         tokenizer = CustomTikTokenizer(path=vocab_file)
 
