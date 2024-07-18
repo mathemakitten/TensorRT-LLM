@@ -388,9 +388,11 @@ class CustomTikTokenizer(MegatronTokenizer):
         return self.vocab
 
     def encode(self, curr_text, add_special_tokens=True, truncation=True, max_length=8192):
+        print(f"Encoding: {curr_text}")
         return self.tokenize(s=curr_text)
 
     def decode(self, text):
+        print(f"Decoding: {text}")
         return self.detokenize(text)
 
 def load_tokenizer(tokenizer_dir: Optional[str] = None,
