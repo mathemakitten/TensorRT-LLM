@@ -380,7 +380,7 @@ def main(args):
             max_attention_window_size=args.max_attention_window_size,
             sink_token_length=args.sink_token_length,
             end_id=end_id,
-            pad_id=pad_id,
+            pad_id=end_id, #pad_id,
             temperature=args.temperature,
             top_k=args.top_k,
             top_p=args.top_p,
