@@ -365,7 +365,6 @@ def main(args):
             kv_cache_free_gpu_memory_fraction,
             enable_chunked_context=args.enable_chunked_context)
     runner_kwargs.pop('gpu_weights_percent')
-    runner_kwargs.pop('is_enc_dec')
     runner_kwargs.pop('max_tokens_in_paged_kv_cache')
     runner_kwargs.pop('kv_cache_enable_block_reuse')
     runner_kwargs.pop('kv_cache_free_gpu_memory_fraction')
