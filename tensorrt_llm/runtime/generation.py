@@ -1266,8 +1266,6 @@ class GenerationSession(object):
                 scfg.num_beams > 1 or scfg.output_cum_log_probs)
 
         assert scfg.end_id is not None, "end_id cannot be none"
-        scfg.pad_id = scfg.end_id
-        print(f"scfg: {scfg}")
         assert scfg.pad_id is not None, 'pad_id cannot be none'
         self.end_ids = torch.full((batch_size * scfg.num_beams, ),
                                   scfg.end_id,
