@@ -57,6 +57,7 @@ DEFAULT_PROMPT_TEMPLATES = {
 
 def supports_inflight_batching(engine_dir):
     config_path = Path(engine_dir) / "config.json"
+    print(f"Using config: {config_path}")
     json_config = GptJsonConfig.parse_file(config_path)
     model_config = json_config.model_config
     return model_config.supports_inflight_batching
