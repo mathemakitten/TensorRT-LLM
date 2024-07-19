@@ -365,6 +365,7 @@ def main(args):
             kv_cache_free_gpu_memory_fraction,
             enable_chunked_context=args.enable_chunked_context)
     runner_kwargs.pop('gpu_weights_percent')
+    runner_kwargs.pop('is_enc_dec')
     runner = runner_cls.from_dir(**runner_kwargs)
 
     with torch.no_grad():
