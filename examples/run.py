@@ -523,6 +523,7 @@ def main(args):
                     return_all_generated_tokens=args.return_all_generated_tokens
                 )
                 torch.cuda.synchronize()
+        print(f"outputs: {outputs}")
         tensorrt_llm.profiler.stop("tmp")
 
         print(
